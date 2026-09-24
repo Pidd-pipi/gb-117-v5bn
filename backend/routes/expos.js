@@ -76,7 +76,18 @@ router.post('/:id/zones', auth, async (req, res) => {
       return res.status(404).json({ message: '展会不存在' });
     }
 
-    expo.zones.push(req.body);
+    const capacity = Number(req.body.capacity);
+    if (!Number.isInteger(capacity) || capacity < 0) {
+      return res.status(400).json({ message: '请填写有效的容纳数量（非负整数）' });
+    }
+
+    expo.zones.push({
+      name: req.body.name,
+      color: req.body.color,
+      position: req.body.position,
+      capacity,
+      available: capacity
+    });
     await expo.save();
 
     res.json(expo.zones[expo.zones.length - 1]);
@@ -97,10 +108,42 @@ router.put('/:id/zones/:zoneId', auth, async (req, res) => {
       return res.status(404).json({ message: '分区不存在' });
     }
 
-    Object.assign(zone, req.body);
-    await expo.save();
+    const { name, color, position, capacity } = req.body;
+    const set = {};
+    if (name !== undefined) set['zones.$.name'] = name;
+    if (color !== undefined) set['zones.$.color'] = color;
+    if (position !== undefined) set['zones.$.position'] = position;
 
-    res.json(zone);
+    let update = { $set: set };
+    const filter = {
+      _id: req.params.id,
+      zones: { $elemMatch: { _id: req.params.zoneId } }
+    };
+
+    if (capacity !== undefined) {
+      const newCapacity = Number(capacity);
+      if (!Number.isInteger(newCapacity) || newCapacity < 0) {
+        return res.status(400).json({ message: '容纳数量必须是非负整数' });
+      }
+      const used = zone.capacity - zone.available;
+      if (newCapacity < used) {
+        return res.status(400).json({ message: `容纳数量不能低于当前已通过数量（${used}）` });
+      }
+      // 容量与剩余名额同步增减，已用名额保持不变；用 $inc 原子调整，
+      // 并通过 available >= -delta 的查询条件防止与并发审核冲突后剩余名额变负
+      const delta = newCapacity - zone.capacity;
+      update.$inc = { 'zones.$.capacity': delta, 'zones.$.available': delta };
+      if (delta < 0) {
+        filter.zones.$elemMatch.available = { $gte: -delta };
+      }
+    }
+
+    const updated = await Expo.findOneAndUpdate(filter, update, { new: true });
+    if (!updated) {
+      return res.status(400).json({ message: '容纳数量不能低于当前已通过数量' });
+    }
+
+    res.json(updated.zones.id(req.params.zoneId));
   } catch (error) {
     res.status(500).json({ message: '服务器错误', error: error.message });
   }

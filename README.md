@@ -124,17 +124,19 @@ npm run dev
 - `GET /api/expos` - 获取所有展会
 - `GET /api/expos/:id` - 获取单个展会详情
 - `POST /api/expos` - 创建展会 (需要认证
-- `PUT /api/expos/:id/zones` - 添加分区
-- `PUT /api/expos/:id/zones/:zoneId` - 更新分区
+- `PUT /api/expos/:id/zones` - 添加分区（需填写 capacity 容纳数量）
+- `PUT /api/expos/:id/zones/:zoneId` - 更新分区（capacity 不能低于已通过数量）
 - `DELETE /api/expos/:id/zones/:zoneId` - 删除分区
 
 ### 摊位
 - `GET /api/booths/expo/:expoId` - 获取展会的摊位
 - `GET /api/booths/pending` - 获取待审核摊位 (管理员)
+- `GET /api/booths/approved` - 获取已通过摊位 (管理员)
 - `GET /api/booths/:id` - 获取摊位详情
 - `POST /api/booths` - 申请摊位
-- `PUT /api/booths/:id/approve` - 通过摊位申请
+- `PUT /api/booths/:id/approve` - 通过摊位申请（占用一个分区名额，满员返回原因，摊位留在待审核）
 - `PUT /api/booths/:id/reject` - 拒绝摊位申请
+- `PUT /api/booths/:id/revoke` - 退回待处理（立即释放名额）
 
 ### 活动时间表
 - `GET /api/schedules/expo/:expoId` - 获取展会活动

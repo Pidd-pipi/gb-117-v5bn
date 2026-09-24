@@ -9,6 +9,17 @@ const zoneSchema = new mongoose.Schema({
     type: String,
     default: '#6366f1'
   },
+  capacity: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  // 剩余可收摊位名额，审核通过时原子递减，退回待处理时恢复
+  available: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   position: {
     x: { type: Number, default: 0 },
     y: { type: Number, default: 0 },

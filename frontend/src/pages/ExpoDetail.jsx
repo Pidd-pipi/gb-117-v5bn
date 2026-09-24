@@ -10,7 +10,8 @@ export default function ExpoDetail() {
   const [expo, setExpo] = useState(null)
   const [booths, setBooths] = useState([])
   const [loading, setLoading] = useState(true)
-  const [newZone, setNewZone] = useState({ name: '', color: '#6366f1' })
+  const [newZone, setNewZone] = useState({ name: '', color: '#6366f1', capacity: '' })
+  const [editingCapacity, setEditingCapacity] = useState({})
 
   useEffect(() => {
     loadExpo()
@@ -39,12 +40,32 @@ export default function ExpoDetail() {
 
   const addZone = async () => {
     if (!newZone.name) return
+    const capacity = parseInt(newZone.capacity, 10)
+    if (!Number.isInteger(capacity) || capacity < 0) {
+      alert('请填写有效的容纳数量（非负整数）')
+      return
+    }
     try {
-      await expoAPI.addZone(id, newZone)
-      setNewZone({ name: '', color: '#6366f1' })
+      await expoAPI.addZone(id, { ...newZone, capacity })
+      setNewZone({ name: '', color: '#6366f1', capacity: '' })
       loadExpo()
     } catch (err) {
-      console.error(err)
+      alert(err.response?.data?.message || '添加分区失败')
+    }
+  }
+
+  const updateCapacity = async (zoneId) => {
+    const capacity = parseInt(editingCapacity[zoneId], 10)
+    if (!Number.isInteger(capacity) || capacity < 0) {
+      alert('请填写有效的容纳数量（非负整数）')
+      return
+    }
+    try {
+      await expoAPI.updateZone(id, zoneId, { capacity })
+      setEditingCapacity({ ...editingCapacity, [zoneId]: undefined })
+      loadExpo()
+    } catch (err) {
+      alert(err.response?.data?.message || '更新容纳数量失败')
     }
   }
 
@@ -88,13 +109,22 @@ export default function ExpoDetail() {
       {isOwner && (
         <div className="bg-white rounded-xl shadow p-6 mb-8">
           <h3 className="text-xl font-bold text-gray-800 mb-4">管理分区</h3>
-          <div className="flex gap-4 mb-4">
+          <div className="flex flex-wrap gap-4 mb-4">
             <input
               type="text"
               placeholder="分区名称"
               value={newZone.name}
               onChange={e => setNewZone({ ...newZone, name: e.target.value })}
-              className="flex-1 px-4 py-2 border rounded-lg"
+              className="flex-1 min-w-[160px] px-4 py-2 border rounded-lg"
+            />
+            <input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="容纳数量"
+              value={newZone.capacity}
+              onChange={e => setNewZone({ ...newZone, capacity: e.target.value })}
+              className="w-32 px-4 py-2 border rounded-lg"
             />
             <input
               type="color"
@@ -106,12 +136,40 @@ export default function ExpoDetail() {
               添加分区
             </button>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {expo.zones?.map(zone => (
-              <div key={zone._id} className="px-4 py-2 rounded-lg text-white" style={{ backgroundColor: zone.color }}>
-                {zone.name}
-              </div>
-            ))}
+          <div className="space-y-3">
+            {expo.zones?.map(zone => {
+              const used = zone.capacity - zone.available
+              const full = zone.available <= 0
+              return (
+                <div
+                  key={zone._id}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-lg border"
+                >
+                  <div className="w-4 h-4 rounded shrink-0" style={{ backgroundColor: zone.color }} />
+                  <span className="font-medium text-gray-800">{zone.name}</span>
+                  <span className={`text-sm ${full ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                    已用 {used}/{zone.capacity} · 剩余 {zone.available}
+                  </span>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="新容量"
+                      value={editingCapacity[zone._id] ?? ''}
+                      onChange={e => setEditingCapacity({ ...editingCapacity, [zone._id]: e.target.value })}
+                      className="w-24 px-2 py-1 border rounded text-sm"
+                    />
+                    <button
+                      onClick={() => updateCapacity(zone._id)}
+                      className="text-sm text-purple-600 hover:underline"
+                    >
+                      调整容量
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

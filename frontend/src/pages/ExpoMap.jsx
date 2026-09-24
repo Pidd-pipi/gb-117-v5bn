@@ -46,31 +46,39 @@ export default function ExpoMap() {
 
       <div className="bg-white rounded-xl shadow-lg p-8">
         <div className="relative bg-gray-100 rounded-lg" style={{ minHeight: '500px' }}>
-          {expo.zones?.map(zone => (
-            <div
-              key={zone._id}
-              className="absolute rounded-lg p-4 border-2"
-              style={{
-                left: (zone.position?.x || 50) + 'px',
-                top: (zone.position?.y || 50) + 'px',
-                width: (zone.position?.width || 200) + 'px',
-                height: (zone.position?.height || 150) + 'px',
-                backgroundColor: zone.color + '30',
-                borderColor: zone.color
-              }}
-            >
-              <h3 className="font-bold text-gray-800 mb-2">{zone.name}</h3>
-              <div className="space-y-1">
-                {booths.filter(b => b.zoneName === zone.name).map(booth => (
-                  <Link key={booth._id} to={`/booth/${booth._id}`}>
-                    <div className="text-xs bg-white rounded px-2 py-1 hover:bg-gray-50">
-                      {booth.name}
-                    </div>
-                  </Link>
-                ))}
+          {expo.zones?.map(zone => {
+            const used = zone.capacity - zone.available
+            return (
+              <div
+                key={zone._id}
+                className="absolute rounded-lg p-4 border-2"
+                style={{
+                  left: (zone.position?.x || 50) + 'px',
+                  top: (zone.position?.y || 50) + 'px',
+                  width: (zone.position?.width || 200) + 'px',
+                  height: (zone.position?.height || 150) + 'px',
+                  backgroundColor: zone.color + '30',
+                  borderColor: zone.color
+                }}
+              >
+                <div className="flex items-baseline justify-between mb-2">
+                  <h3 className="font-bold text-gray-800">{zone.name}</h3>
+                  <span className={`text-xs whitespace-nowrap ml-2 ${zone.available <= 0 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                    已用 {used}/{zone.capacity} · 剩余 {zone.available}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {booths.filter(b => b.zoneName === zone.name).map(booth => (
+                    <Link key={booth._id} to={`/booth/${booth._id}`}>
+                      <div className="text-xs bg-white rounded px-2 py-1 hover:bg-gray-50">
+                        {booth.name}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {booths.filter(b => !b.zoneName).map(booth => (
             <Link
@@ -91,7 +99,9 @@ export default function ExpoMap() {
           {expo.zones?.map(zone => (
             <div key={zone._id} className="flex items-center gap-2">
               <div className="w-4 h-4 rounded" style={{ backgroundColor: zone.color }} />
-              <span className="text-sm text-gray-600">{zone.name}</span>
+              <span className="text-sm text-gray-600">
+                {zone.name}（已用 {zone.capacity - zone.available}/{zone.capacity}，剩余 {zone.available}）
+              </span>
             </div>
           ))}
         </div>
