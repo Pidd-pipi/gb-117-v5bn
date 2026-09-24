@@ -10,7 +10,11 @@ export default function ExpoDetail() {
   const [expo, setExpo] = useState(null)
   const [booths, setBooths] = useState([])
   const [loading, setLoading] = useState(true)
-  const [newZone, setNewZone] = useState({ name: '', color: '#6366f1' })
+  const [newZone, setNewZone] = useState({ name: '', color: '#6366f1', capacity: 10 })
+  const [zoneError, setZoneError] = useState('')
+  // 正在编辑容量的分区 id -> 输入值
+  const [editingCapacity, setEditingCapacity] = useState({})
+  const [savingZone, setSavingZone] = useState(null)
 
   useEffect(() => {
     loadExpo()
@@ -38,13 +42,57 @@ export default function ExpoDetail() {
   }
 
   const addZone = async () => {
-    if (!newZone.name) return
+    setZoneError('')
+    if (!newZone.name) {
+      setZoneError('请填写分区名称')
+      return
+    }
+    const cap = Number(newZone.capacity)
+    if (!Number.isInteger(cap) || cap < 1) {
+      setZoneError('容纳数量必须是不小于 1 的整数')
+      return
+    }
     try {
       await expoAPI.addZone(id, newZone)
-      setNewZone({ name: '', color: '#6366f1' })
+      setNewZone({ name: '', color: '#6366f1', capacity: 10 })
       loadExpo()
     } catch (err) {
-      console.error(err)
+      setZoneError(err.response?.data?.message || '添加失败')
+    }
+  }
+
+  const usedInZone = (zone) => {
+    const counted = booths.filter(b =>
+      b.zone ? b.zone === zone._id : b.zoneName === zone.name
+    ).length
+    return Math.max(zone.used ?? counted, counted)
+  }
+
+  const startEditCapacity = (zone) => {
+    setZoneError('')
+    setEditingCapacity({ ...editingCapacity, [zone._id]: zone.capacity ?? usedInZone(zone) })
+  }
+
+  const saveCapacity = async (zone) => {
+    const cap = Number(editingCapacity[zone._id])
+    setZoneError('')
+    if (!Number.isInteger(cap) || cap < 1) {
+      setZoneError('容纳数量必须是不小于 1 的整数')
+      return
+    }
+    setSavingZone(zone._id)
+    try {
+      await expoAPI.updateZone(id, zone._id, { capacity: cap })
+      setEditingCapacity(prev => {
+        const next = { ...prev }
+        delete next[zone._id]
+        return next
+      })
+      await loadExpo()
+    } catch (err) {
+      setZoneError(err.response?.data?.message || '容量更新失败')
+    } finally {
+      setSavingZone(null)
     }
   }
 
@@ -88,13 +136,25 @@ export default function ExpoDetail() {
       {isOwner && (
         <div className="bg-white rounded-xl shadow p-6 mb-8">
           <h3 className="text-xl font-bold text-gray-800 mb-4">管理分区</h3>
-          <div className="flex gap-4 mb-4">
+          {zoneError && (
+            <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm">{zoneError}</div>
+          )}
+          <div className="flex flex-wrap gap-4 mb-4 items-center">
             <input
               type="text"
               placeholder="分区名称"
               value={newZone.name}
               onChange={e => setNewZone({ ...newZone, name: e.target.value })}
-              className="flex-1 px-4 py-2 border rounded-lg"
+              className="flex-1 min-w-[160px] px-4 py-2 border rounded-lg"
+            />
+            <input
+              type="number"
+              min="1"
+              step="1"
+              placeholder="容纳数量"
+              value={newZone.capacity}
+              onChange={e => setNewZone({ ...newZone, capacity: e.target.value })}
+              className="w-32 px-4 py-2 border rounded-lg"
             />
             <input
               type="color"
@@ -107,11 +167,56 @@ export default function ExpoDetail() {
             </button>
           </div>
           <div className="flex flex-wrap gap-3">
-            {expo.zones?.map(zone => (
-              <div key={zone._id} className="px-4 py-2 rounded-lg text-white" style={{ backgroundColor: zone.color }}>
-                {zone.name}
-              </div>
-            ))}
+            {expo.zones?.map(zone => {
+              const used = usedInZone(zone)
+              const remaining = zone.capacity == null ? null : Math.max(0, zone.capacity - used)
+              const editing = editingCapacity[zone._id] !== undefined
+              return (
+                <div key={zone._id} className="rounded-lg text-white px-4 py-3 min-w-[180px]" style={{ backgroundColor: zone.color }}>
+                  <div className="font-bold">{zone.name}</div>
+                  <div className="text-xs opacity-90 mt-1">
+                    {zone.capacity == null
+                      ? `已用 ${used} · 未设容量`
+                      : `已用 ${used}/${zone.capacity} · 剩余 ${remaining}`}
+                  </div>
+                  {editing ? (
+                    <div className="mt-2 flex gap-1">
+                      <input
+                        type="number"
+                        min="1"
+                        value={editingCapacity[zone._id]}
+                        onChange={e => setEditingCapacity({ ...editingCapacity, [zone._id]: e.target.value })}
+                        className="w-20 px-2 py-1 rounded text-gray-800 text-sm"
+                      />
+                      <button
+                        onClick={() => saveCapacity(zone)}
+                        disabled={savingZone === zone._id}
+                        className="bg-white/30 hover:bg-white/40 px-2 py-1 rounded text-xs"
+                      >
+                        保存
+                      </button>
+                      <button
+                        onClick={() => setEditingCapacity(prev => {
+                          const next = { ...prev }
+                          delete next[zone._id]
+                          return next
+                        })}
+                        className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-xs"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => startEditCapacity(zone)}
+                      className="mt-2 text-xs underline opacity-90 hover:opacity-100"
+                    >
+                      调整容量
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

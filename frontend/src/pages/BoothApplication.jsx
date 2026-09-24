@@ -9,6 +9,7 @@ export default function BoothApplication() {
   const { user } = useAuth()
   const [expo, setExpo] = useState(null)
   const [myBooth, setMyBooth] = useState(null)
+  const [approvedBooths, setApprovedBooths] = useState([])
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -24,12 +25,22 @@ export default function BoothApplication() {
     }
     loadExpo()
     loadMyBooth()
+    loadBooths()
   }, [id, user])
 
   const loadExpo = async () => {
     try {
       const res = await expoAPI.getById(id)
       setExpo(res.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const loadBooths = async () => {
+    try {
+      const res = await boothAPI.getByExpo(id)
+      setApprovedBooths(res.data)
     } catch (err) {
       console.error(err)
     }
@@ -138,9 +149,25 @@ export default function BoothApplication() {
               className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
             >
               <option value="">请选择分区</option>
-              {expo.zones?.map(zone => (
-                <option key={zone._id} value={zone.name}>{zone.name}</option>
-              ))}
+              {expo.zones?.map(zone => {
+                const used = Math.max(
+                  zone.used ?? approvedBooths.filter(b =>
+                    b.zone ? b.zone === zone._id : b.zoneName === zone.name
+                  ).length,
+                  approvedBooths.filter(b =>
+                    b.zone ? b.zone === zone._id : b.zoneName === zone.name
+                  ).length
+                )
+                const remaining = zone.capacity == null ? null : Math.max(0, zone.capacity - used)
+                return (
+                  <option key={zone._id} value={zone.name}>
+                    {zone.name}
+                    {zone.capacity != null
+                      ? `（已用 ${used}/${zone.capacity}，剩 ${remaining}${remaining === 0 ? '，已满' : ''}）`
+                      : ''}
+                  </option>
+                )
+              })}
             </select>
           </div>
 

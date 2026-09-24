@@ -33,9 +33,11 @@ export const boothAPI = {
   getByExpo: (expoId) => api.get(`/booths/expo/${expoId}`),
   getById: (id) => api.get(`/booths/${id}`),
   getPending: () => api.get('/booths/pending'),
+  getApproved: () => api.get('/booths/approved'),
   getMyBooth: (expoId) => api.get(`/booths/my/${expoId}`),
   create: (data) => api.post('/booths', data),
   approve: (id, data) => api.put(`/booths/${id}/approve`, data),
+  repend: (id) => api.put(`/booths/${id}/repend`),
   reject: (id) => api.put(`/booths/${id}/reject`),
 };
 
